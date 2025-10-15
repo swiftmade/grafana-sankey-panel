@@ -135,40 +135,17 @@ export function parseData(data: { series: any[] }, options: { valueField: any },
     return [{ links: [], nodes: [] }, [], [], null, fixColor];
   }
 
-  // Helper to detect if a field is a color column
-  const isColorColumn = (field: Field<any, Vector<any>>): boolean => {
-    const fieldName = getFieldDisplayName(field).toLowerCase();
+  // If we have 4 columns, the 3rd column (index 2) is the color column
+  const hasColorColumn = numFields === 4;
+  const colorFieldIndex = hasColorColumn ? 2 : -1;
 
-    // Check if field name suggests it's a color
-    if (fieldName === 'color' || fieldName === 'colour') {
-      return true;
-    }
-
-    // Check if field type is string and values look like colors
-    if (field.type === 'string' && field.values.length > 0) {
-      const sampleValue = field.values.get(0);
-      if (sampleValue) {
-        const colorPattern = /^(#[0-9a-fA-F]{3,8}|rgb|hsl|[a-z\-]+)$/i;
-        return colorPattern.test(String(sampleValue).trim());
-      }
-    }
-
-    return false;
-  };
-
-  // Detect if we have a color column
-  let colorFieldIndex = -1;
-  if (numFields === 4) {
-    // Check the third column (index 2) for color
-    if (isColorColumn(allData[2])) {
-      colorFieldIndex = 2;
-    }
-  }
-
-  // get display names
+  // get display names (exclude color column if present)
   let displayNames: string[] = [];
-  allData.forEach((field: Field<any, Vector<any>>) => {
-    displayNames.push(getFieldDisplayName(field));
+  allData.forEach((field: Field<any, Vector<any>>, index: number) => {
+    // Skip the color column in display names
+    if (index !== colorFieldIndex) {
+      displayNames.push(getFieldDisplayName(field));
+    }
   });
 
   // Find value field (should be the numeric field, typically the 3rd column)

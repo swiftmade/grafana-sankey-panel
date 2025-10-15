@@ -195,9 +195,9 @@ describe('dataParser', () => {
       expect(pluginData.links[1].color).toBe('#00FF00');
       expect(pluginData.links[2].color).toBe('#0000FF');
 
-      // Check display names include color column
-      expect(displayNames).toHaveLength(4);
-      expect(displayNames).toEqual(['source', 'destination', 'color', 'value']);
+      // Check display names exclude color column
+      expect(displayNames).toHaveLength(3);
+      expect(displayNames).toEqual(['source', 'destination', 'value']);
     });
 
     it('should parse 4-column data with color column detected by value pattern', () => {
