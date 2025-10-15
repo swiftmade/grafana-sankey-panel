@@ -3,7 +3,11 @@
 > Maintained by [Swiftmade OÜ](https://swiftmade.co)
 > Forked from [NetSage Sankey Panel](https://github.com/netsage-project/netsage-sankey-panel)
 
-This is a panel plugin for generating Sankey diagrams in Grafana 7.0+. Sankey diagrams are good for visualizing flow data and the width of the flows will be proportionate to the selected metric.
+This is a panel plugin for generating Sankey diagrams in Grafana 8.0+. Sankey diagrams are good for visualizing flow data and the width of the flows will be proportionate to the selected metric.
+
+## Requirements
+
+- **Grafana 8.0.0 or later** is required for this plugin to work.
 
 ## What's Different in This Fork
 
@@ -24,8 +28,8 @@ The panel will draw links from the first column of data points, to the last in o
 ```bash
 git clone https://github.com/swiftmade/grafana-sankey-panel
 cd grafana-sankey-panel
-npm install
-npm run build
+yarn install
+yarn build
 ```
 
 Copy the `dist` folder to your Grafana plugins directory, or use Docker:
@@ -37,10 +41,10 @@ docker-compose up
 ### Development
 
 ```bash
-npm run dev  # Watch mode for development
-npm run build  # Production build
-npm test  # Run tests
-npm run lint  # Lint code
+yarn dev  # Watch mode for development
+yarn build  # Production build
+yarn test  # Run tests
+yarn lint  # Lint code
 ```
 
 ## Customizing
