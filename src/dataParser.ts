@@ -3,6 +3,10 @@ import { DataFrameView, Field, getFieldDisplayName, Vector } from '@grafana/data
 /**
  * Takes data from Grafana query and returns it in the format needed for this panel
  *
+ * SIMPLIFIED 3-COLUMN PARSER:
+ * This parser expects exactly 3 columns: source, destination, value
+ * It automatically builds multi-step Sankey diagrams by detecting flow paths
+ *
  * @param data the data returned by the query
  * @param options the field options from the editor panel
  * @param monochrome the boolean in the editor panel that sets whether the sankey is single or multi colored
@@ -115,9 +119,13 @@ export function parseData(data: { series: any[] }, options: { valueField: any },
   }
 
   let allData = data.series[0].fields;
-  let numFields = allData.length - 1;
+  let numFields = allData.length;
 
-  // add data checker.  are there enough fields?
+  // Validate: We expect exactly 3 fields (source, destination, value)
+  if (numFields !== 3) {
+    console.warn(`Expected 3 columns (source, destination, value), but got ${numFields} columns. Falling back to legacy parser.`);
+    return parseLegacyFormat(data, options, monochrome, colorArray, fixColor);
+  }
 
   // get display names
   let displayNames: string[] = [];
@@ -125,33 +133,129 @@ export function parseData(data: { series: any[] }, options: { valueField: any },
     displayNames.push(getFieldDisplayName(field));
   });
 
-  // Find selected value field or default to the first number field and use for values.
-  // const valueFieldName = options.valueField;
-  // const valueField = options.valueField
-  //   ? data.series.map((series: { fields: any[] }) =>
-  //       series.fields.find((field: { name: any }) => field.name === options.valueField)
-  //     )
-  //   : data.series.map((series: { fields: any[] }) =>
-  //       series.fields.find((field: { type: string }) => field.type === 'number')
-  //     );
-  // Fix to avoid erroring out when value field is hidden by transform
-    let valueField = data.series.map((series: { fields: any[] }) =>
-          series.fields.find((field: { name: any }) => field.name === options.valueField)
-        )
-    if(!valueField[0]) {
-      valueField = data.series.map((series: { fields: any[] }) =>
-        series.fields.find((field: { type: string }) => field.type === 'number')
-      );
+  // Find value field (should be the numeric field, typically the 3rd column)
+  let valueField = data.series.map((series: { fields: any[] }) =>
+    series.fields.find((field: { name: any }) => field.name === options.valueField)
+  );
+
+  if (!valueField[0]) {
+    valueField = data.series.map((series: { fields: any[] }) =>
+      series.fields.find((field: { type: string }) => field.type === 'number')
+    );
+  }
+
+  const series = data.series[0];
+  const frame = new DataFrameView(series);
+
+  // Initialize arrays
+  let pluginDataLinks: Array<{
+    source: number;
+    target: number;
+    value: number;
+    displayValue: any;
+    id: string;
+    color: any;
+    node0: any;
+  }> = [];
+  let pluginDataNodes: Array<{ name: any; id: any }> = [];
+  let nodeColorMap: Map<string, any> = new Map();
+  let rowDisplayNames: Array<{ name: any; display: any }> = [];
+
+  let rowId = 0;
+  let colorIndex = 0;
+
+  // Helper function to get or create a node
+  const getOrCreateNode = (nodeName: any): number => {
+    let index = pluginDataNodes.findIndex((e) => e.name === nodeName);
+    if (index === -1) {
+      index = pluginDataNodes.push({ name: nodeName, id: [`row${rowId}`] }) - 1;
+
+      // Assign color based on source nodes only
+      if (!nodeColorMap.has(nodeName)) {
+        const color = colorArray[colorIndex % colorArray.length];
+        nodeColorMap.set(nodeName, color);
+        colorIndex++;
+      }
+    } else {
+      pluginDataNodes[index].id.push(`row${rowId}`);
+    }
+    return index;
+  };
+
+  // Parse each row as a direct source -> destination link
+  frame.forEach((row) => {
+    const sourceName = row[0]; // First column: source
+    const targetName = row[1]; // Second column: destination
+    const valueRaw = row[2];   // Third column: value
+
+    // Get or create nodes
+    const sourceIndex = getOrCreateNode(sourceName);
+    const targetIndex = getOrCreateNode(targetName);
+
+    // Get the color from the source node
+    const linkColor = nodeColorMap.get(sourceName) || colorArray[0];
+
+    // Format display value
+    let fieldValues = valueField[0].display(valueRaw);
+    let displayValue;
+    if (fieldValues.suffix) {
+      displayValue = `${fieldValues.text} ${fieldValues.suffix}`;
+    } else {
+      displayValue = `${fieldValues.text}`;
     }
 
+    // Create the link
+    pluginDataLinks.push({
+      source: sourceIndex,
+      target: targetIndex,
+      value: valueRaw,
+      displayValue: displayValue,
+      id: `row${rowId}`,
+      color: linkColor,
+      node0: sourceIndex,
+    });
 
+    // Create display name for this row
+    const rowDisplay = `${sourceName} -> ${targetName}`;
+    rowDisplayNames.push({ name: `row${rowId}`, display: rowDisplay });
 
-  let values = [];
-  valueField[0].values.map((value: any) => {
-    values.push([value, valueField[0].display(value), valueField[0].name]);
+    rowId++;
   });
-  // display converts value to display value with units
-  // name = name of field
+
+  const pluginData = { links: pluginDataLinks, nodes: pluginDataNodes };
+
+  return [pluginData, displayNames, rowDisplayNames, valueField[0], fixColor];
+}
+
+/**
+ * Legacy parser for backward compatibility with multi-column format
+ * Used when data doesn't match the 3-column format
+ */
+function parseLegacyFormat(
+  data: { series: any[] },
+  options: { valueField: any },
+  monochrome: boolean,
+  colorArray: string[],
+  fixColor: (color: string) => string
+) {
+  let allData = data.series[0].fields;
+  let numFields = allData.length - 1;
+
+  // get display names
+  let displayNames: string[] = [];
+  allData.forEach((field: Field<any, Vector<any>>) => {
+    displayNames.push(getFieldDisplayName(field));
+  });
+
+  // Find value field
+  let valueField = data.series.map((series: { fields: any[] }) =>
+    series.fields.find((field: { name: any }) => field.name === options.valueField)
+  );
+  if (!valueField[0]) {
+    valueField = data.series.map((series: { fields: any[] }) =>
+      series.fields.find((field: { type: string }) => field.type === 'number')
+    );
+  }
 
   const series = data.series[0];
   const frame = new DataFrameView(series);
@@ -170,7 +274,7 @@ export function parseData(data: { series: any[] }, options: { valueField: any },
   let col0: Array<{ name: any; index: number; color: any }> = [];
   let rowDisplayNames: Array<{ name: any; display: any }> = [];
 
-  let rowId = 0; // update after each row
+  let rowId = 0;
   let currentColor;
 
   // Retrieve panel data from panel
@@ -187,12 +291,11 @@ export function parseData(data: { series: any[] }, options: { valueField: any },
           col0.push({ name: node, index: index, color: currentColor });
         }
       } else {
-        pluginDataNodes[index].id.push(`row${rowId}`); // might not need?
+        pluginDataNodes[index].id.push(`row${rowId}`);
       }
       currentLink.push(index);
     }
     // create all the individual links, value is always the last column
-    // let rowColor = colorArray[currentLink[0] % colorArray.length];
     let rowColor = col0.find((e) => e.index === currentLink[0])?.color;
     let rowDisplay = `${pluginDataNodes[currentLink[0]].name}`;
     for (let i = 0; i < currentLink.length - 1; i++) {

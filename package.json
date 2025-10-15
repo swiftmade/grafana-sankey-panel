@@ -7,13 +7,13 @@
   "scripts": {
     "build": "webpack -c ./.config/webpack/webpack.config.ts --env production",
     "dev": "webpack -w -c ./.config/webpack/webpack.config.ts --env development",
-    "e2e": "yarn exec cypress install && yarn exec grafana-e2e run",
-    "e2e:update": "yarn exec cypress install && yarn exec grafana-e2e run --update-screenshots",
+    "e2e": "npx cypress install && npx grafana-e2e run",
+    "e2e:update": "npx cypress install && npx grafana-e2e run --update-screenshots",
     "lint": "eslint --cache --ignore-path ./.gitignore --ext .js,.jsx,.ts,.tsx .",
-    "lint:fix": "yarn run lint --fix",
+    "lint:fix": "npm run lint -- --fix",
     "server": "docker-compose up --build",
     "sign": "npx --yes @grafana/sign-plugin@latest",
-    "start": "yarn watch",
+    "start": "npm run dev",
     "test": "jest --watch --onlyChanged",
     "test:ci": "jest --passWithNoTests --maxWorkers 4",
     "typecheck": "tsc --noEmit"
@@ -83,6 +83,5 @@
   },
   "engines": {
     "node": ">=14"
-  },
-  "packageManager": "yarn@1.22.10"
+  }
 }

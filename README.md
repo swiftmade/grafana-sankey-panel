@@ -17,6 +17,32 @@ The panel will draw links from the first column of data points, to the last in o
 
 ![](https://github.com/netsage-project/netsage-sankey-panel/blob/master/src/img/sankey3.png?raw=true)
 
+## Installation & Development
+
+### Install from GitHub
+
+```bash
+git clone https://github.com/swiftmade/grafana-sankey-panel
+cd grafana-sankey-panel
+npm install
+npm run build
+```
+
+Copy the `dist` folder to your Grafana plugins directory, or use Docker:
+
+```bash
+docker-compose up
+```
+
+### Development
+
+```bash
+npm run dev  # Watch mode for development
+npm run build  # Production build
+npm test  # Run tests
+npm run lint  # Lint code
+```
+
 ## Customizing
 - **Links:** There are currently two options for link color: multi or single.  It is multi-colored by default.  To choose a single color for the links, toggle the "Single Link color only" option and choose your color from Grafana's color picker.
 - **Nodes:** You can change the color of the rectangular nodes by changing the "Node color" option
