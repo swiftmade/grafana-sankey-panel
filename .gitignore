@@ -32,5 +32,5 @@ e2e-results/
 .vscode
 
 # lock files
-package-lock.json
+# package-lock.json
 .DS_Store
