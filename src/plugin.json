@@ -2,14 +2,14 @@
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
   "type": "panel",
   "name": "Sankey Panel",
-  "id": "netsage-sankey-panel",
+  "id": "swiftmade-sankey-panel",
   "info": {
-    "description": "Sankey Panel Plugin for Grafana",
+    "description": "Sankey Panel Plugin for Grafana with simplified 3-column data parser",
     "author": {
-      "name": "NetSage",
-      "url": "http://github.com/netsage-project"
+      "name": "Swiftmade OÜ",
+      "url": "https://swiftmade.co"
     },
-    "keywords": ["netsage", "sankey"],
+    "keywords": ["sankey", "flow", "diagram", "visualization", "swiftmade"],
     "logos": {
       "small": "img/logo.svg",
       "large": "img/logo.svg"
@@ -17,11 +17,11 @@
     "links": [
       {
         "name": "Website",
-        "url": "https://github.com/netsage-project/netsage-sankey-panel"
+        "url": "https://github.com/swiftmade/grafana-sankey-panel"
       },
       {
         "name": "License",
-        "url": "https://github.com/netsage-project/netsage-sankey-panel/blob/master/LICENSE"
+        "url": "https://github.com/swiftmade/grafana-sankey-panel/blob/master/LICENSE"
       }
     ],
     "screenshots": [{"name":"sankey2", "path":"img/sankey2.png"}, {"name":"sankey3", "path":"img/sankey3.png"}],

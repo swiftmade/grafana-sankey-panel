@@ -28,11 +28,12 @@ export const SankeyPanel: React.FC<Props> = ({ options, data, width, height, id 
   } catch (error) {
     console.error('parsing error: ', error);
   }
+
   const displayNames = parsedData[1];
   const pluginData = parsedData[0];
   const rowDisplayNames = parsedData[2];
   const field = parsedData[3];
-  const fixColor = parsedData[4];
+  const fixColor = parsedData[4] || ((color: string) => color);
   // const textColor = fixColor(graphOptions.textColor);
   const textColor = theme.colors.text.primary;
   const nodeColor = fixColor(graphOptions.nodeColor);
