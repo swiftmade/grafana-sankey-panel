@@ -1,9 +1,9 @@
 {
-  "name": "netsage-sankey-panel",
+  "name": "grafana-sankey-panel",
   "version": "1.1.3",
-  "description": "Sankey Panel Plugin for Grafana",
+  "description": "Sankey Panel Plugin for Grafana with simplified 3-column data parser",
   "license": "Apache-2.0",
-  "repository": "https://github.com/netsage-project/netsage-sankey-panel",
+  "repository": "https://github.com/swiftmade/grafana-sankey-panel",
   "scripts": {
     "build": "webpack -c ./.config/webpack/webpack.config.ts --env production",
     "dev": "webpack -w -c ./.config/webpack/webpack.config.ts --env development",
@@ -19,9 +19,16 @@
     "typecheck": "tsc --noEmit"
   },
   "author": {
-    "name": "NetSage",
-    "email": "khturner2@es.net"
+    "name": "Swiftmade OÜ",
+    "email": "hello@swiftmade.co",
+    "url": "https://swiftmade.co"
   },
+  "contributors": [
+    {
+      "name": "NetSage Project",
+      "email": "khturner2@es.net"
+    }
+  ],
   "dependencies": {
     "@emotion/css": "^11.1.3",
     "@grafana/data": "8.0.6",

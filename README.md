@@ -1,9 +1,13 @@
-# NetSage Sankey Grafana Plugin
+# Sankey Panel for Grafana
 
-[![CI](https://github.com/netsage-project/netsage-sankey-panel/actions/workflows/ci.yml/badge.svg)](https://github.com/netsage-project/netsage-sankey-panel/actions/workflows/ci.yml)
-[![Release](https://github.com/netsage-project/netsage-sankey-panel/actions/workflows/release.yml/badge.svg)](https://github.com/netsage-project/netsage-sankey-panel/actions/workflows/release.yml)
+> Maintained by [Swiftmade OÜ](https://swiftmade.co)
+> Forked from [NetSage Sankey Panel](https://github.com/netsage-project/netsage-sankey-panel)
 
-This is a panel plugin for generating Sankey diagrams in Grafana 7.0+.  Sankey diagrams are good for visualizing flow data and the width of the flows will be proportionate to the selected metric.
+This is a panel plugin for generating Sankey diagrams in Grafana 7.0+. Sankey diagrams are good for visualizing flow data and the width of the flows will be proportionate to the selected metric.
+
+## What's Different in This Fork
+
+This fork simplifies the data parser to support **multi-step Sankey charts from just 3 columns of data**: `source`, `destination`, and `value`. This makes it easier to create complex flow visualizations without complex query structuring.
 
 ![](https://github.com/netsage-project/netsage-sankey-panel/blob/master/src/img/sankey2.png?raw=true)
 
