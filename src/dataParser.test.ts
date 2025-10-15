@@ -167,8 +167,170 @@ describe('dataParser', () => {
     });
   });
 
-  describe('parseData - legacy format fallback', () => {
-    it('should fall back to legacy parser with wrong number of columns', () => {
+  describe('parseData - 4-column format with color', () => {
+    it('should parse 4-column data with color column detected by name', () => {
+      const frame = toDataFrame({
+        fields: [
+          createField('source', FieldType.string, ['A', 'B', 'C']),
+          createField('destination', FieldType.string, ['B', 'C', 'D']),
+          createField('color', FieldType.string, ['#FF0000', '#00FF00', '#0000FF']),
+          createField('value', FieldType.number, [100, 200, 300]),
+        ],
+      });
+
+      const mockData = {
+        series: [frame],
+      };
+
+      const options = { valueField: 'value' };
+      const [pluginData, displayNames] = parseData(mockData, options, false, 'blue');
+
+      // Check nodes
+      expect(pluginData.nodes).toHaveLength(4);
+      expect(pluginData.nodes.map((n: any) => n.name)).toEqual(['A', 'B', 'C', 'D']);
+
+      // Check links have custom colors
+      expect(pluginData.links).toHaveLength(3);
+      expect(pluginData.links[0].color).toBe('#FF0000');
+      expect(pluginData.links[1].color).toBe('#00FF00');
+      expect(pluginData.links[2].color).toBe('#0000FF');
+
+      // Check display names include color column
+      expect(displayNames).toHaveLength(4);
+      expect(displayNames).toEqual(['source', 'destination', 'color', 'value']);
+    });
+
+    it('should parse 4-column data with color column detected by value pattern', () => {
+      const frame = toDataFrame({
+        fields: [
+          createField('from', FieldType.string, ['A', 'B']),
+          createField('to', FieldType.string, ['B', 'C']),
+          createField('link_color', FieldType.string, ['red', 'blue']),
+          createField('amount', FieldType.number, [100, 200]),
+        ],
+      });
+
+      const mockData = {
+        series: [frame],
+      };
+
+      const options = { valueField: 'amount' };
+      const [pluginData] = parseData(mockData, options, false, 'green');
+
+      // Check links have the provided colors
+      expect(pluginData.links).toHaveLength(2);
+      expect(pluginData.links[0].color).toBe('red');
+      expect(pluginData.links[1].color).toBe('blue');
+    });
+
+    it('should handle named colors from the fixColor function', () => {
+      const frame = toDataFrame({
+        fields: [
+          createField('source', FieldType.string, ['A', 'B']),
+          createField('destination', FieldType.string, ['B', 'C']),
+          createField('color', FieldType.string, ['dark-green', 'dark-blue']),
+          createField('value', FieldType.number, [100, 200]),
+        ],
+      });
+
+      const mockData = {
+        series: [frame],
+      };
+
+      const options = { valueField: 'value' };
+      const [pluginData] = parseData(mockData, options, false, 'orange');
+
+      // Check that named colors are converted
+      expect(pluginData.links[0].color).toBe('#1A7311'); // dark-green
+      expect(pluginData.links[1].color).toBe('rgb(18, 80, 176)'); // dark-blue
+    });
+
+    it('should handle RGB color strings', () => {
+      const frame = toDataFrame({
+        fields: [
+          createField('source', FieldType.string, ['A']),
+          createField('destination', FieldType.string, ['B']),
+          createField('colour', FieldType.string, ['rgb(255, 128, 0)']),
+          createField('value', FieldType.number, [100]),
+        ],
+      });
+
+      const mockData = {
+        series: [frame],
+      };
+
+      const options = { valueField: 'value' };
+      const [pluginData] = parseData(mockData, options, false, 'blue');
+
+      expect(pluginData.links[0].color).toBe('rgb(255, 128, 0)');
+    });
+
+    it('should handle HSL color strings', () => {
+      const frame = toDataFrame({
+        fields: [
+          createField('source', FieldType.string, ['A']),
+          createField('destination', FieldType.string, ['B']),
+          createField('color', FieldType.string, ['hsl(120, 100%, 50%)']),
+          createField('value', FieldType.number, [100]),
+        ],
+      });
+
+      const mockData = {
+        series: [frame],
+      };
+
+      const options = { valueField: 'value' };
+      const [pluginData] = parseData(mockData, options, false, 'blue');
+
+      expect(pluginData.links[0].color).toBe('hsl(120, 100%, 50%)');
+    });
+
+    it('should detect color column with "colour" spelling', () => {
+      const frame = toDataFrame({
+        fields: [
+          createField('source', FieldType.string, ['A']),
+          createField('destination', FieldType.string, ['B']),
+          createField('colour', FieldType.string, ['#ABCDEF']),
+          createField('value', FieldType.number, [100]),
+        ],
+      });
+
+      const mockData = {
+        series: [frame],
+      };
+
+      const options = { valueField: 'value' };
+      const [pluginData] = parseData(mockData, options, false, 'blue');
+
+      expect(pluginData.links[0].color).toBe('#ABCDEF');
+    });
+
+    it('should use different colors for each link when colors are provided', () => {
+      const frame = toDataFrame({
+        fields: [
+          createField('source', FieldType.string, ['A', 'A', 'B']),
+          createField('destination', FieldType.string, ['B', 'C', 'C']),
+          createField('color', FieldType.string, ['#FF0000', '#00FF00', '#0000FF']),
+          createField('value', FieldType.number, [100, 150, 200]),
+        ],
+      });
+
+      const mockData = {
+        series: [frame],
+      };
+
+      const options = { valueField: 'value' };
+      const [pluginData] = parseData(mockData, options, false, 'blue');
+
+      // Each link should have its own color
+      expect(pluginData.links[0].color).toBe('#FF0000');
+      expect(pluginData.links[1].color).toBe('#00FF00');
+      expect(pluginData.links[2].color).toBe('#0000FF');
+    });
+  });
+
+  describe('parseData - invalid format', () => {
+    it('should return empty data with wrong number of columns', () => {
       const frame = toDataFrame({
         fields: [
           createField('col1', FieldType.string, ['A']),
@@ -183,17 +345,17 @@ describe('dataParser', () => {
         series: [frame],
       };
 
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
       const options = { valueField: 'value' };
       const [pluginData] = parseData(mockData, options, false, 'blue');
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Expected 3 columns')
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Expected 3 or 4 columns')
       );
-      expect(pluginData.nodes).toBeDefined();
-      expect(pluginData.links).toBeDefined();
+      expect(pluginData.nodes).toHaveLength(0);
+      expect(pluginData.links).toHaveLength(0);
 
-      consoleWarnSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
     });
   });
 

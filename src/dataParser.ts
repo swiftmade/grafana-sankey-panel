@@ -3,8 +3,15 @@ import { DataFrameView, Field, getFieldDisplayName, Vector } from '@grafana/data
 /**
  * Takes data from Grafana query and returns it in the format needed for this panel
  *
- * SIMPLIFIED 3-COLUMN PARSER:
- * This parser expects exactly 3 columns: source, destination, value
+ * SIMPLIFIED 3 OR 4-COLUMN PARSER:
+ * This parser expects either:
+ * - 3 columns: source, destination, value
+ * - 4 columns: source, destination, color, value
+ *
+ * The color column is automatically detected by:
+ * - Column name being "color" or "colour"
+ * - Column values looking like color strings (hex codes, rgb, hsl, or color names)
+ *
  * It automatically builds multi-step Sankey diagrams by detecting flow paths
  *
  * @param data the data returned by the query
@@ -121,10 +128,41 @@ export function parseData(data: { series: any[] }, options: { valueField: any },
   let allData = data.series[0].fields;
   let numFields = allData.length;
 
-  // Validate: We expect exactly 3 fields (source, destination, value)
-  if (numFields !== 3) {
-    console.warn(`Expected 3 columns (source, destination, value), but got ${numFields} columns. Falling back to legacy parser.`);
-    return parseLegacyFormat(data, options, monochrome, colorArray, fixColor);
+  // Validate: We expect either 3 fields (source, destination, value) or 4 fields (source, destination, color, value)
+  if (numFields !== 3 && numFields !== 4) {
+    console.error(`Expected 3 or 4 columns (source, destination, [color], value), but got ${numFields} columns.`);
+    // Return empty data structure
+    return [{ links: [], nodes: [] }, [], [], null, fixColor];
+  }
+
+  // Helper to detect if a field is a color column
+  const isColorColumn = (field: Field<any, Vector<any>>): boolean => {
+    const fieldName = getFieldDisplayName(field).toLowerCase();
+
+    // Check if field name suggests it's a color
+    if (fieldName === 'color' || fieldName === 'colour') {
+      return true;
+    }
+
+    // Check if field type is string and values look like colors
+    if (field.type === 'string' && field.values.length > 0) {
+      const sampleValue = field.values.get(0);
+      if (sampleValue) {
+        const colorPattern = /^(#[0-9a-fA-F]{3,8}|rgb|hsl|[a-z\-]+)$/i;
+        return colorPattern.test(String(sampleValue).trim());
+      }
+    }
+
+    return false;
+  };
+
+  // Detect if we have a color column
+  let colorFieldIndex = -1;
+  if (numFields === 4) {
+    // Check the third column (index 2) for color
+    if (isColorColumn(allData[2])) {
+      colorFieldIndex = 2;
+    }
   }
 
   // get display names
@@ -186,14 +224,33 @@ export function parseData(data: { series: any[] }, options: { valueField: any },
   frame.forEach((row) => {
     const sourceName = row[0]; // First column: source
     const targetName = row[1]; // Second column: destination
-    const valueRaw = row[2];   // Third column: value
+
+    // Determine color and value positions based on whether we have a color column
+    let customColor: string | null = null;
+    let valueRaw: number;
+
+    if (colorFieldIndex === 2) {
+      // 4-column format: source, destination, color, value
+      customColor = row[2];
+      valueRaw = row[3];
+    } else {
+      // 3-column format: source, destination, value
+      valueRaw = row[2];
+    }
 
     // Get or create nodes
     const sourceIndex = getOrCreateNode(sourceName);
     const targetIndex = getOrCreateNode(targetName);
 
-    // Get the color from the source node
-    const linkColor = nodeColorMap.get(sourceName) || colorArray[0];
+    // Determine the link color
+    let linkColor: string;
+    if (customColor) {
+      // Use custom color from the data, process it through fixColor for known color names
+      linkColor = fixColor(customColor);
+    } else {
+      // Get the color from the source node (auto-assigned)
+      linkColor = nodeColorMap.get(sourceName) || colorArray[0];
+    }
 
     // Format display value
     let fieldValues = valueField[0].display(valueRaw);
@@ -222,105 +279,6 @@ export function parseData(data: { series: any[] }, options: { valueField: any },
     rowId++;
   });
 
-  const pluginData = { links: pluginDataLinks, nodes: pluginDataNodes };
-
-  return [pluginData, displayNames, rowDisplayNames, valueField[0], fixColor];
-}
-
-/**
- * Legacy parser for backward compatibility with multi-column format
- * Used when data doesn't match the 3-column format
- */
-function parseLegacyFormat(
-  data: { series: any[] },
-  options: { valueField: any },
-  monochrome: boolean,
-  colorArray: string[],
-  fixColor: (color: string) => string
-) {
-  let allData = data.series[0].fields;
-  let numFields = allData.length - 1;
-
-  // get display names
-  let displayNames: string[] = [];
-  allData.forEach((field: Field<any, Vector<any>>) => {
-    displayNames.push(getFieldDisplayName(field));
-  });
-
-  // Find value field
-  let valueField = data.series.map((series: { fields: any[] }) =>
-    series.fields.find((field: { name: any }) => field.name === options.valueField)
-  );
-  if (!valueField[0]) {
-    valueField = data.series.map((series: { fields: any[] }) =>
-      series.fields.find((field: { type: string }) => field.type === 'number')
-    );
-  }
-
-  const series = data.series[0];
-  const frame = new DataFrameView(series);
-
-  // initialize arrays
-  let pluginDataLinks: Array<{
-    source: number;
-    target: number;
-    value: number;
-    displayValue: any;
-    id: string;
-    color: any;
-    node0: any;
-  }> = [];
-  let pluginDataNodes: Array<{ name: any; id: any; colId: number }> = [];
-  let col0: Array<{ name: any; index: number; color: any }> = [];
-  let rowDisplayNames: Array<{ name: any; display: any }> = [];
-
-  let rowId = 0;
-  let currentColor;
-
-  // Retrieve panel data from panel
-  frame.forEach((row) => {
-    let currentLink: number[] = [];
-    // go through columns to find all nodes
-    for (let i = 0; i < numFields; i++) {
-      let node = row[i];
-      let index = pluginDataNodes.findIndex((e) => e.name === node && e.colId === i);
-      if (index === -1) {
-        index = pluginDataNodes.push({ name: node, id: [`row${rowId}`], colId: i }) - 1;
-        if (i === 0) {
-          currentColor = colorArray[col0.length % colorArray.length];
-          col0.push({ name: node, index: index, color: currentColor });
-        }
-      } else {
-        pluginDataNodes[index].id.push(`row${rowId}`);
-      }
-      currentLink.push(index);
-    }
-    // create all the individual links, value is always the last column
-    let rowColor = col0.find((e) => e.index === currentLink[0])?.color;
-    let rowDisplay = `${pluginDataNodes[currentLink[0]].name}`;
-    for (let i = 0; i < currentLink.length - 1; i++) {
-      let fieldValues = valueField[0].display(row[numFields]);
-      let displayValue;
-      if (fieldValues.suffix) {
-        displayValue = `${fieldValues.text} ${fieldValues.suffix}`;
-      } else {
-        displayValue = `${fieldValues.text}`;
-      }
-
-      pluginDataLinks.push({
-        source: currentLink[i],
-        target: currentLink[i + 1],
-        value: row[numFields],
-        displayValue: displayValue,
-        id: `row${rowId}`,
-        color: rowColor,
-        node0: currentLink[0],
-      });
-      rowDisplay = rowDisplay.concat(` -> ${pluginDataNodes[currentLink[i + 1]].name}`);
-    }
-    rowDisplayNames.push({ name: `row${rowId}`, display: rowDisplay });
-    rowId++;
-  });
   const pluginData = { links: pluginDataLinks, nodes: pluginDataNodes };
 
   return [pluginData, displayNames, rowDisplayNames, valueField[0], fixColor];
